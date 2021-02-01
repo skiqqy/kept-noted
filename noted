@@ -28,6 +28,10 @@ sq () {
 	echo $(sed -e 's/^"//' -e 's/"$//' <<< $1)
 }
 
+assert_package () {
+	[ ! $(command -v "$1") ] && error "Missing Package \'$1\'."
+}
+
 # Upload a file
 upload () {
 	echo "[UPLOADING] $1"
@@ -45,6 +49,10 @@ download () {
 	echo $(curl -s -X POST -F "nic=$nic" -F "key=$privkey" -F "fname=$fname" $route)
 }
 ### End Helper Functions ###
+
+# Check dependencies
+assert_package dmenu
+assert_package jq
 
 # Begin
 if [ ! -d $workdir ]
@@ -134,8 +142,4 @@ done
 ### End Suckless
 
 # Update
-# TODO: Only upload files that changed.
-for f in "$workdir/*"
-do
-	upload $f
-done
+upload $file
