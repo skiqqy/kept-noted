@@ -4,10 +4,19 @@ mkdir $workdir
 height=$(ls -1 $workdir | wc -l)
 height=$(echo $height + 1 | bc)
 file=$(echo -e "NEW\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
+if [ $? -eq 1 ]
+then
+	exit 0
+fi
 
 if [ $file = "NEW" ]
 then
 	file=$(echo "" | dmenu -p "Enter Filename:")
+fi
+
+if [ $? -eq 1 ]
+then
+	exit 0
 fi
 file="$workdir/$file"
 touch "$file"
