@@ -1,9 +1,12 @@
 #!/bin/bash
+# Defaults
+workdir="$HOME/Documents/noted"
+
+### Start Helper Functions ###
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[92m'
 NC='\033[0m'
-# Helper Functions
 error () {
 	printf "[${RED}ERROR${NC}] $1\n"
 	exit $2
@@ -20,9 +23,9 @@ success () {
 tick () {
 	printf "$1 ${GREEN}✔${NC}\n"
 }
+### End Helper Functions ###
 
 # Begin
-workdir="$HOME/Documents/noted"
 if [ ! -d $workdir ]
 then
 	mkdir $workdir
@@ -31,19 +34,23 @@ fi
 if [ ! -f "$workdir/.key" ]
 then
 	cat << EOF > "$workdir/.key"
-nic:<your_nickname>
-key:<your_key>
+nic=<your_nickname>
+key=<your_key>
+domain=http://localhost:5000
 EOF
 	error ".key file missing, generating \'$workdir/.key\'... Please fill it out."
 fi
 
-while IFS=: read -r key val
+while IFS== read -r key val
 do
 	if [ $key = 'key' ]
 	then
 		privkey=$val
-	else
+	elif [ $key = 'nic' ]
+	then
 		nic=$val
+	else
+		domain=$val
 	fi
 done < "$workdir/.key"
 
@@ -70,6 +77,17 @@ touch "$file"
 height=$(wc -l "$file" | awk '{print $1}')
 prompt="Add/delete a task: "
 
+# Upload a file
+upload () {
+	echo "[UPLOADING] $1"
+	route="$domain/upload/note"
+	echo $route
+	content=$(cat $1)
+	fname=$(basename $1)
+	echo -e "$nic\n$privkey\n$fname"
+	curl -X POST -F "nic=$nic" -F "key=$privkey" -F "fname=$fname" -F "content=$content" $route
+}
+
 # Loop Credit too https://tools.suckless.org/dmenu/scripts/todo
 cmd=$(dmenu -l "$height" -p "$prompt" "$@" < "$file")
 while [ -n "$cmd" ]; do
@@ -84,5 +102,11 @@ while [ -n "$cmd" ]; do
 
 	cmd=$(dmenu -l "$height" -p "$prompt" "$@" < "$file")
 done
+### End Suckless
 
-exit 0
+# Update
+# TODO: Only upload files that changed.
+for f in "$workdir/*"
+do
+	upload $f
+done
