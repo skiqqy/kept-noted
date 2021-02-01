@@ -1,0 +1,33 @@
+#!/bin/bash
+workdir="$HOME/Documents/noted"
+mkdir $workdir
+height=$(ls -1 $workdir | wc -l)
+height=$(echo $height + 1 | bc)
+file=$(echo -e "NEW\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
+
+if [ $file = "NEW" ]
+then
+	file=$(echo "" | dmenu -p "Enter Filename:")
+fi
+file="$workdir/$file"
+touch "$file"
+
+height=$(wc -l "$file" | awk '{print $1}')
+prompt="Add/delete a task: "
+
+# Credit too https://tools.suckless.org/dmenu/scripts/todo
+cmd=$(dmenu -l "$height" -p "$prompt" "$@" < "$file")
+while [ -n "$cmd" ]; do
+ 	if grep -q "^$cmd\$" "$file"; then
+		grep -v "^$cmd\$" "$file" > "$file.$$"
+		mv "$file.$$" "$file"
+        height=$(( height - 1 ))
+ 	else
+		echo "$cmd" >> "$file"
+		height=$(( height + 1 ))
+ 	fi
+
+	cmd=$(dmenu -l "$height" -p "$prompt" "$@" < "$file")
+done
+
+exit 0
