@@ -44,9 +44,27 @@ upload () {
 # Download a file
 download () {
 	route="$domain/download/note"
-	content=$(cat $1)
 	fname=$(basename $1)
 	echo $(curl -s -X POST -F "nic=$nic" -F "key=$privkey" -F "fname=$fname" $route)
+}
+
+# Sync a file
+# usage: sync filename
+sync () {
+	ret=$(download $1)
+	code=$(echo $ret | jq '.status')
+	if [ $code -eq 0 ]
+	then
+		data=$(echo $ret | jq '.data')
+		fname=$(echo $data | jq '.fname')
+		content=$(echo $data | jq '.content')
+
+		fname=$(sq "$fname")
+		content=$(sq "$content")
+
+		echo -en $content > $workdir/$fname
+	fi
+	echo "Sync for <$1> completed."
 }
 ### End Helper Functions ###
 
@@ -83,28 +101,9 @@ do
 	fi
 done < "$workdir/.key"
 
-# Update local copies
-for f in $workdir/*
-do
-	ret=$(download $f)
-	code=$(echo $ret | jq '.status')
-	if [ $code -eq 0 ]
-	then
-		data=$(echo $ret | jq '.data')
-		fname=$(echo $data | jq '.fname')
-		content=$(echo $data | jq '.content')
-
-		fname=$(sq "$fname")
-		content=$(sq "$content")
-
-		echo -en $content > $workdir/$fname
-	fi
-done
-
-
 height=$(ls -1 $workdir | wc -l)
 height=$(echo $height + 1 | bc)
-file=$(echo -e "NEW\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
+file=$(echo -e "NEW\nSYNC\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
 if [ $? -eq 1 ]
 then
 	exit 0
@@ -113,12 +112,22 @@ fi
 if [ $file = "NEW" ]
 then
 	file=$(echo "" | dmenu -p "Enter Filename:")
+elif [ "$file" = "SYNC" ]
+then
+	# Sync everything.
+	for f in $workdir/*
+	do
+		sync "$f"
+	done
+	exit 0
 fi
 
 if [ $? -eq 1 ]
 then
 	exit 0
 fi
+
+sync $file # Sync the file we want to write too.
 file="$workdir/$file"
 touch "$file"
 
