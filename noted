@@ -53,7 +53,7 @@ download () {
 sync () {
 	ret=$(download $1)
 	code=$(echo $ret | jq '.status')
-	if [ $code -eq 0 ]
+	if [ ! -z $code ]  && [ "$code" -eq 0 ]
 	then
 		data=$(echo $ret | jq '.data')
 		fname=$(echo $data | jq '.fname')
@@ -63,8 +63,10 @@ sync () {
 		content=$(sq "$content")
 
 		echo -en $content > $workdir/$fname
+		echo "Sync for <$1> completed."
+	else
+		echo "Sync for <$1> failed."
 	fi
-	echo "Sync for <$1> completed."
 }
 ### End Helper Functions ###
 
