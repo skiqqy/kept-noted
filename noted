@@ -1,6 +1,6 @@
 #!/bin/bash
 # Defaults
-version="1.1"
+version="2.0"
 workdir="$HOME/Documents/noted"
 
 ### Start Helper Functions ###
@@ -91,12 +91,27 @@ sync () {
 # file=SYNC -> Sync all files.
 # file=<filename>
 setfile () {
-	height=$(ls -1 $workdir | wc -l)
-	height=$(echo $height + 1 | bc)
-	file=$(echo -e "NEW\nSYNC\nEXIT\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
-	if [ $? -eq 1 ]
+	if [ -z $istty ]
 	then
-		exit 0 # User exited dmenu
+		height=$(ls -1 $workdir | wc -l)
+		height=$(echo $height + 1 | bc)
+		file=$(echo -e "NEW\nSYNC\nEXIT\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
+		if [ $? -eq 1 ]
+		then
+			exit 0 # User exited dmenu
+		fi
+	else
+		i=0
+		files=( "EXIT" "NEW" "SYNC" $(ls $workdir) )
+
+		for file in ${files[@]}
+		do
+			echo "$i. $file"
+			((i++))
+		done
+		read -p "Enter Choice: " input
+		# TODO: Check that input is an int
+		file=${files[$input]}
 	fi
 }
 
@@ -209,18 +224,27 @@ gui () {
 
 cli () {
 	clear
-	echo TODO: TTY Mode.
-
-	IFS=', '
-	i=1
-	files=()
-	read -a files <<< "$(ls -m $workdir)"
-	for file in ${files[@]}
-	do
-		echo "$i. $file"
-		i=$(( i + 1 ))
-	done
-	exit 0 # This is just temporary
+	setfile
+	if [ $file = "NEW" ]
+	then
+		read -p "Enter Filename: " file
+	elif [ "$file" = "SYNC" ]
+	then
+		# Sync everything.
+		for f in $workdir/*
+		do
+			sync "$f"
+		done
+		return 0
+	elif [ "$file" = "EXIT" ]
+	then
+		echo "Goodbye!"
+		exit 0
+	fi
+	
+	open $file
+	$editor $file
+	upload $file
 }
 
 main () {
