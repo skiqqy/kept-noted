@@ -89,29 +89,37 @@ sync () {
 # Results:
 # file=NEW -> we create a new file.
 # file=SYNC -> Sync all files.
+# file=DELETE -> We want to Delete a file.
 # file=<filename>
 setfile () {
-	if [ -z $istty ]
+	if [ -z "$istty" ]
 	then
 		height=$(ls -1 $workdir | wc -l)
 		height=$(echo $height + 1 | bc)
-		file=$(echo -e "NEW\nSYNC\nEXIT\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
+		file=$(echo -e "NEW\nDELETE\nSYNC\nEXIT\n$(ls -1 $workdir)" | dmenu -l "$height" -p "Files:")
 		if [ $? -eq 1 ]
 		then
 			exit 0 # User exited dmenu
 		fi
 	else
 		i=0
-		files=( "EXIT" "NEW" "SYNC" $(ls $workdir) )
+		files=( "EXIT" "NEW" "DELETE" "SYNC" $(ls "$workdir") )
 
-		for file in ${files[@]}
+		for file in "${files[@]}"
 		do
 			echo "$i. $file"
 			((i++))
 		done
-		read -p "Enter Choice: " input
-		# TODO: Check that input is an int
-		file=${files[$input]}
+		read -r -p "Enter Choice: " input
+
+		# Check that input is an int and in array bounds
+		if echo "$input" | grep -E ^\[0-9\]+\$ > /dev/null && [ "$input" -ge 0 ] && [ "$input" -lt "${#files[@]}" ]
+		then
+			file=${files[$input]}
+		else
+			verbose "Invalid input/ Out of array bounds."
+			file=
+		fi
 	fi
 }
 
@@ -190,6 +198,17 @@ gui () {
 	elif [ "$file" = "EXIT" ]
 	then
 		exit 0
+	elif [ "$file" = "DELETE" ]
+	then
+		file=$(ls -1 "$workdir" | dmenu -p "Enter Filename:")
+		if [ "$file" = "" ]
+		then
+			verbose "[DELETE] File not specified"
+			return 0
+		fi
+
+		rm "$workdir/$file"
+		return 0
 	fi
 
 	if [ $? -eq 1 ]
@@ -225,9 +244,38 @@ gui () {
 cli () {
 	clear
 	setfile
-	if [ $file = "NEW" ]
+	if [ "$file" = "NEW" ]
 	then
 		read -p "Enter Filename: " file
+	elif [ "$file" = "DELETE" ]
+	then
+		clear
+		files=( $(ls "$workdir" ) )
+		i=0
+
+		for f in "${files[@]}"
+		do
+			echo "$i. $f"
+			((i++))
+		done
+		read -r -p "Enter Choice: " input
+
+		# Check that input was an int, and in array bounds
+		if echo "$input" | grep -E ^\[0-9\]+\$ > /dev/null && [ "$input" -ge 0 ] && [ "$input" -lt "${#files[@]}" ]
+		then
+			file="${files[$input]}"
+		else
+			file=
+		fi
+
+		if [ -z $file ]
+		then
+			verbose "[DELETE] File not specified/ Invalid Input"
+			return 0
+		fi
+
+		rm "$workdir/$file"
+		return 0
 	elif [ "$file" = "SYNC" ]
 	then
 		# Sync everything.
@@ -240,6 +288,9 @@ cli () {
 	then
 		echo "Goodbye!"
 		exit 0
+	elif [ -z $file ]
+	then
+		return 0
 	fi
 	
 	open $file
